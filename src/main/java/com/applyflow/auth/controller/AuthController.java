@@ -1,5 +1,7 @@
 package com.applyflow.auth.controller;
 
+import com.applyflow.auth.dto.AuthResponse;
+import com.applyflow.auth.dto.LoginRequest;
 import com.applyflow.auth.dto.RegisterRequest;
 import com.applyflow.auth.service.AuthService;
 import com.applyflow.user.UserResponse;
@@ -25,5 +27,10 @@ public class AuthController {
     @ResponseStatus(HttpStatus.CREATED)
     public UserResponse register(@Valid @RequestBody RegisterRequest request) {
         return authService.register(request);
+    }
+
+    @PostMapping("/login")
+    public AuthResponse login(@Valid @RequestBody LoginRequest request) {
+        return authService.login(request);
     }
 }
