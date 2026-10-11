@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: applyflow
+  datasource:
+    url: jdbc:postgresql://localhost:5432/applyflow
+    username: applyflow
+    password: applyflow
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
