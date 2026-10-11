@@ -37,6 +37,11 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", ex.getMessage(), Map.of());
     }
 
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ApiError> handleNotFound(ResourceNotFoundException ex) {
+        return build(HttpStatus.NOT_FOUND, "NOT_FOUND", ex.getMessage(), Map.of());
+    }
+
     private ResponseEntity<ApiError> build(HttpStatus status, String error, String message,
                                            Map<String, String> fieldErrors) {
         ApiError body = new ApiError(Instant.now(), status.value(), error, message, fieldErrors);
