@@ -7,4 +7,6 @@ import java.util.Optional;
 public interface JobRepository extends JpaRepository<Job, Long> {
 
     Optional<Job> findBySourceAndExternalId(String source, String externalId);
+
+    boolean existsBySourceAndExternalId(String source, String externalId);
 }
