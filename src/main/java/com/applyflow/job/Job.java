@@ -11,6 +11,7 @@ import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.BatchSize;
 
 import java.time.Instant;
 import java.util.HashSet;
@@ -61,6 +62,7 @@ public class Job {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
+    @BatchSize(size = 50)
     @ManyToMany
     @JoinTable(
             name = "job_skills",
