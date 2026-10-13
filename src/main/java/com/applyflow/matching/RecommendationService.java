@@ -7,7 +7,7 @@ import com.applyflow.common.PageResponse;
 import com.applyflow.job.Job;
 import com.applyflow.job.JobRepository;
 import com.applyflow.job.JobResponse;
-import com.applyflow.skill.Skill;
+import com.applyflow.job.JobSkillRow;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -21,17 +21,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class RecommendationService {
 
     private static final int MAX_PAGE_SIZE = 100;
 
-    private static final Comparator<JobRecommendation> BEST_FIRST =
-            Comparator.comparingInt(JobRecommendation::score).reversed()
-                    .thenComparing((JobRecommendation r) -> r.job().publishedAt(),
-                            Comparator.nullsLast(Comparator.<Instant>reverseOrder()))
-                    .thenComparing((JobRecommendation r) -> r.job().id(), Comparator.<Long>reverseOrder());
+    private static final Comparator<ScoredJob> BEST_FIRST =
+            Comparator.comparingInt(ScoredJob::score).reversed()
+                    .thenComparing(ScoredJob::publishedAt, Comparator.nullsLast(Comparator.<Instant>reverseOrder()))
+                    .thenComparing(ScoredJob::jobId, Comparator.<Long>reverseOrder());
 
     private final CandidateProfileRepository profileRepository;
     private final JobRepository jobRepository;
@@ -64,24 +65,45 @@ public class RecommendationService {
             return PageResponse.from(new PageImpl<>(List.of(), pageRequest, 0));
         }
 
-        List<JobRecommendation> ranked = jobRepository.findAllBySkillIds(skillIds).stream()
-                .map(job -> toRecommendation(job, levelsByName))
-                .filter(r -> r.score() >= safeMinScore)
+        // 1. score every candidate job from light (job, skill) rows, without loading entities
+        Map<Long, List<JobSkillRow>> rowsByJob = jobRepository.findSkillRowsOfJobsSharingSkills(skillIds).stream()
+                .collect(Collectors.groupingBy(JobSkillRow::jobId));
+
+        List<ScoredJob> ranked = rowsByJob.entrySet().stream()
+                .map(entry -> score(entry.getKey(), entry.getValue(), levelsByName))
+                .filter(job -> job.score() >= safeMinScore)
                 .sorted(BEST_FIRST)
                 .toList();
 
+        // 2. load full job data only for the requested page
         int from = (int) Math.min((long) safePage * safeSize, ranked.size());
         int to = Math.min(from + safeSize, ranked.size());
-        return PageResponse.from(new PageImpl<>(ranked.subList(from, to), pageRequest, ranked.size()));
+        List<ScoredJob> pageItems = ranked.subList(from, to);
+
+        Map<Long, Job> jobsById = jobRepository.findAllById(pageItems.stream().map(ScoredJob::jobId).toList())
+                .stream()
+                .collect(Collectors.toMap(Job::getId, Function.identity()));
+
+        List<JobRecommendation> content = pageItems.stream()
+                .map(item -> new JobRecommendation(
+                        JobResponse.from(jobsById.get(item.jobId())),
+                        item.score(),
+                        item.result().matchedSkills(),
+                        item.result().missingSkills()))
+                .toList();
+
+        return PageResponse.from(new PageImpl<>(content, pageRequest, ranked.size()));
     }
 
-    private JobRecommendation toRecommendation(Job job, Map<String, SkillLevel> levelsByName) {
-        List<String> jobSkillNames = job.getSkills().stream().map(Skill::getName).toList();
-        MatchResult result = scorer.score(jobSkillNames, levelsByName);
-        return new JobRecommendation(
-                JobResponse.from(job),
-                result.score(),
-                result.matchedSkills(),
-                result.missingSkills());
+    private ScoredJob score(Long jobId, List<JobSkillRow> rows, Map<String, SkillLevel> levelsByName) {
+        List<String> skillNames = rows.stream().map(JobSkillRow::skillName).toList();
+        return new ScoredJob(jobId, rows.get(0).publishedAt(), scorer.score(skillNames, levelsByName));
+    }
+
+    private record ScoredJob(Long jobId, Instant publishedAt, MatchResult result) {
+
+        int score() {
+            return result.score();
+        }
     }
 }
