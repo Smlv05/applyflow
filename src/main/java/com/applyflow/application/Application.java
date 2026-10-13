@@ -19,6 +19,8 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
+import org.hibernate.annotations.BatchSize;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -54,6 +56,7 @@ public class Application {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @BatchSize(size = 50)
     @OneToMany(mappedBy = "application", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("changedAt ASC, id ASC")
     private List<ApplicationStatusChange> history = new ArrayList<>();
