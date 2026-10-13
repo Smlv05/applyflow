@@ -52,6 +52,13 @@ public class ApplicationService {
         return ApplicationResponse.from(find(userId, id));
     }
 
+    @Transactional(readOnly = true)
+    public ApplicationStats stats(Long userId) {
+        return ApplicationStats.of(
+                applicationRepository.countByCurrentStatus(userId),
+                applicationRepository.countByReachedStatus(userId));
+    }
+
     @Transactional
     public ApplicationResponse changeStatus(Long userId, Long id, ApplicationStatus target) {
         Application application = find(userId, id);

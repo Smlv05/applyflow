@@ -51,6 +51,11 @@ public class ApplicationController {
         return service.changeStatus(userId(jwt), id, request.status());
     }
 
+    @GetMapping("/stats")
+    public ApplicationStats stats(@AuthenticationPrincipal Jwt jwt) {
+        return service.stats(userId(jwt));
+    }
+
     private static Long userId(Jwt jwt) {
         return Long.valueOf(jwt.getSubject());
     }

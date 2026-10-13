@@ -182,6 +182,44 @@ class ApplicationIntegrationTest {
     }
 
     @Test
+    void stats_withoutApplications_returnsZeros() throws Exception {
+        String token = registerAndLogin(false);
+
+        mockMvc.perform(get("/api/applications/stats").header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(0))
+                .andExpect(jsonPath("$.byStatus.SAVED").value(0))
+                .andExpect(jsonPath("$.interviewRate").value(0.0));
+    }
+
+    @Test
+    void stats_summarizesCurrentAndReachedStatuses() throws Exception {
+        String token = registerAndLogin(false);
+        long offered = createApplication(token, jobId(token, "Senior"));
+        long rejected = createApplication(token, jobId(token, "Junior"));
+        createApplication(token, jobId(token, "Staff"));
+
+        changeStatus(token, offered, "APPLIED").andExpect(status().isOk());
+        changeStatus(token, offered, "INTERVIEW").andExpect(status().isOk());
+        changeStatus(token, offered, "OFFER").andExpect(status().isOk());
+        changeStatus(token, rejected, "APPLIED").andExpect(status().isOk());
+        changeStatus(token, rejected, "REJECTED").andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/applications/stats").header("Authorization", bearer(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total").value(3))
+                .andExpect(jsonPath("$.byStatus.SAVED").value(1))
+                .andExpect(jsonPath("$.byStatus.OFFER").value(1))
+                .andExpect(jsonPath("$.byStatus.REJECTED").value(1))
+                .andExpect(jsonPath("$.byStatus.APPLIED").value(0))
+                .andExpect(jsonPath("$.applied").value(2))
+                .andExpect(jsonPath("$.interviews").value(1))
+                .andExpect(jsonPath("$.offers").value(1))
+                .andExpect(jsonPath("$.interviewRate").value(50.0))
+                .andExpect(jsonPath("$.offerRate").value(50.0));
+    }
+
+    @Test
     void create_concurrently_createsExactlyOne() throws Exception {
         String token = registerAndLogin(false);
         long jobId = jobId(token, "Staff");
